@@ -7,19 +7,19 @@ https://github.com/pypa/sampleproject
 
 # Always prefer setuptools over distutils
 from setuptools import setup, find_packages
+
 # To use a consistent encoding
 from codecs import open
 from os import path
+
+# import the application version.
+from version import __version__ as version
 
 here = path.abspath(path.dirname(__file__))
 
 # Get the long description from the README file
 with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
-
-version = {}
-with open(path.join(here, 'aws_google_auth/_version.py')) as fp:
-    exec(fp.read(), version)
 
 setup(
     name='aws-google-auth',

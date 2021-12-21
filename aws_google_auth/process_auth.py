@@ -4,17 +4,18 @@ __strict__ = True
 
 import logging
 import keyring
-from tzlocal import get_localzone
-from logging import getLogger
-from logging import debug
 from logging import info
+from logging import debug
 from base64 import b64decode
+from logging import getLogger
+from argparse import Namespace
+from tzlocal import get_localzone
 from aws_google_auth import amazon
 from aws_google_auth import google
 from aws_google_auth.util import Util
 
 
-def process_auth(args, config):
+def process_auth(args: Namespace, config):
     # Set up logging
     getLogger().setLevel(getattr(logging, args.log_level.upper(), None))
 

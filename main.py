@@ -2,13 +2,12 @@
 
 __strict__ = True
 
-import sys
+from sys import argv
 from aws_google_auth.cli import cli
 
 
 def main():
-    cli_args = sys.argv[1:]
-    cli(cli_args)
+    cli(argv[1:])
 
 
 if __name__ == '__main__':

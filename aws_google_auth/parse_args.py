@@ -3,9 +3,9 @@
 __strict__ = True
 
 from os import getenv
+from argparse import Namespace
 from version import __version__
 from argparse import ArgumentParser
-from argparse import Namespace
 
 
 def parse_args(args: list) -> Namespace:
@@ -54,8 +54,10 @@ def parse_args(args: list) -> Namespace:
     default_duration = 43200
     try:
         duration = int(getenv("DURATION", default_duration))
+
     except ValueError:
         duration = default_duration
+
     duration_group.add_argument(
         "-d", "--duration",
         type=int,

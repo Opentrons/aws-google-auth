@@ -5,14 +5,15 @@ __strict__ = True
 from os import getenv
 from version import __version__
 from argparse import ArgumentParser
+from argparse import Namespace
 
 
-def parse_args(args: list) -> None:
+def parse_args(args: list) -> Namespace:
     """
         Parse command-line arguments.
 
         :param args: list
-        :return: None
+        :return: Namespace
     """
 
     parser = ArgumentParser(

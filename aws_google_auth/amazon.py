@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+__strict__ = True
+
 import base64
 import boto3
 import os

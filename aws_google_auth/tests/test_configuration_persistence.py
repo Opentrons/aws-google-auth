@@ -70,7 +70,7 @@ class TestConfigurationPersistence(unittest.TestCase):
 
     def test_can_read_all_values(self):
         test_configuration = configuration.Configuration()
-        test_configuration.read(self.c.profile)
+        test_configuration.load(self.c.profile)
 
         # Reading won't get password, so we need to set for the configuration
         # to be considered valid

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+__strict__ = True
+
 import base64
 import io
 import json
@@ -12,25 +14,13 @@ import sys
 import requests
 from PIL import Image
 from datetime import datetime
-from distutils.spawn import find_executable
+
 from bs4 import BeautifulSoup
 from requests import HTTPError
-from six import print_ as print
+from aws_google_auth import version
 from six.moves import urllib_parse, input
-
-from aws_google_auth import _version
-
-# The U2F USB Library is optional, if it's there, include it.
-try:
-    from aws_google_auth import u2f
-except ImportError:
-    logging.info("Failed to import U2F libraries, U2F login unavailable. "
-                 "Other methods can still continue.")
-
-
-class ExpectedGoogleException(Exception):
-    def __init__(self, *args):
-        super(ExpectedGoogleException, self).__init__(*args)
+from distutils.spawn import find_executable
+from exceptions import ExpectedGoogleException
 
 
 class Google:
@@ -47,7 +37,7 @@ class Google:
         duration_seconds: number of seconds for the session to be active (max 43200)
         """
 
-        self.version = _version.__version__
+        self.version = version.__version__
         self.config = config
         self.base_url = 'https://accounts.google.com'
         self.save_failure = save_failure
@@ -55,7 +45,8 @@ class Google:
         self.save_flow = save_flow
         if save_flow:
             self.save_flow_dict = {}
-            self.save_flow_dir = "aws-google-auth-" + datetime.now().strftime('%Y-%m-%dT%H%M%S')
+            self.save_flow_dir = "aws-google-auth-" + datetime.now().strftime(
+                '%Y-%m-%dT%H%M%S')
             os.makedirs(self.save_flow_dir, exist_ok=True)
 
     @property
@@ -95,7 +86,9 @@ class Google:
         return sess
 
     def _save_file_name(self, url):
-        filename = url.split('://')[1].split('?')[0].replace("accounts.google", "ac.go").replace("/", "~")
+        filename = url.split('://')[1].split('?')[0].replace("accounts.google",
+                                                             "ac.go").replace(
+            "/", "~")
         file_idx = self.save_flow_dict.get(filename, 1)
         self.save_flow_dict[filename] = file_idx + 1
         return filename + "_" + str(file_idx)
@@ -103,24 +96,31 @@ class Google:
     def _save_request(self, url, method='GET', data=None, json_data=None):
         if self.save_flow:
             filename = self._save_file_name(url) + "_" + method + ".req"
-            with open(os.path.join(self.save_flow_dir, filename), 'w', encoding='utf-8') as out:
+            with open(os.path.join(self.save_flow_dir, filename), 'w',
+                      encoding='utf-8') as out:
                 try:
                     out.write("params=" + url.split('?')[1])
                 except IndexError:
                     out.write("params=None")
-                out.write(("\ndata: " + json.dumps(data, indent=2)).replace(self.config.password, '<PASSWORD>'))
-                out.write(("\njson: " + json.dumps(json_data, indent=2)).replace(self.config.password, '<PASSWORD>'))
+                out.write(("\ndata: " + json.dumps(data, indent=2)).replace(
+                    self.config.password, '<PASSWORD>'))
+                out.write(
+                    ("\njson: " + json.dumps(json_data, indent=2)).replace(
+                        self.config.password, '<PASSWORD>'))
 
     def _save_response(self, url, response):
         if self.save_flow:
             filename = self._save_file_name(url) + ".html"
-            with open(os.path.join(self.save_flow_dir, filename), 'w', encoding='utf-8') as out:
+            with open(os.path.join(self.save_flow_dir, filename), 'w',
+                      encoding='utf-8') as out:
                 out.write(response.text)
 
     def post(self, url, data=None, json_data=None):
         try:
-            self._save_request(url, method='POST', data=data, json_data=json_data)
-            response = self.check_for_failure(self.session.post(url, data=data, json=json_data))
+            self._save_request(url, method='POST', data=data,
+                               json_data=json_data)
+            response = self.check_for_failure(
+                self.session.post(url, data=data, json=json_data))
             self._save_response(url, response)
 
         except requests.exceptions.ConnectionError as e:
@@ -173,20 +173,24 @@ class Google:
         typeOfInput = type(input)
         if typeOfInput == dict:  # parse down a dict
             for item in input:
-                keyHandles.extend(Google.find_key_handles(input[item], challengeTxt))
+                keyHandles.extend(
+                    Google.find_key_handles(input[item], challengeTxt))
 
         elif typeOfInput == list:  # looks like we've hit an array - iterate it
-            array = list(filter(None, input))  # remove any None type objects from the array
+            array = list(filter(None,
+                                input))  # remove any None type objects from the array
             for item in array:
                 typeValue = type(item)
                 if typeValue == list:  # another array - recursive call
-                    keyHandles.extend(Google.find_key_handles(item, challengeTxt))
+                    keyHandles.extend(
+                        Google.find_key_handles(item, challengeTxt))
                 elif typeValue == int or typeValue == bool:  # ints bools etc we don't care
                     continue
                 else:  # we went a string or unicode here (python 3.x lost unicode global)
                     try:  # keyHandle string will be base64 encoded -
                         # if its not an exception is thrown and we continue as its not the string we're after
-                        base64UrlEncoded = base64.urlsafe_b64encode(base64.b64decode(item))
+                        base64UrlEncoded = base64.urlsafe_b64encode(
+                            base64.b64decode(item))
                         if base64UrlEncoded != challengeTxt:  # make sure its not the challengeTxt - if it not return it
                             keyHandles.append(base64UrlEncoded)
                     except:
@@ -196,16 +200,20 @@ class Google:
     @staticmethod
     def find_app_id(inputString):
         try:
-            searchResult = re.search('"appid":"[a-z://.-_] + "', inputString).group()
+            searchResult = re.search('"appid":"[a-z://.-_] + "',
+                                     inputString).group()
             searchObject = json.loads('{' + searchResult + '}')
             return str(searchObject['appid'])
         except:
-            logging.exception('Was unable to find appid value in googles SAML page')
+            logging.exception(
+                'Was unable to find appid value in googles SAML page')
             sys.exit(1)
 
     def do_login(self):
         self.session = requests.Session()
-        self.session.headers['User-Agent'] = "AWS Sign-in/{} (aws-google-auth)".format(self.version)
+        self.session.headers[
+            'User-Agent'] = "AWS Sign-in/{} (aws-google-auth)".format(
+            self.version)
         sess = self.get(self.login_url)
 
         # Collect information from the page source
@@ -252,7 +260,8 @@ class Google:
             # sometimes they serve up a different page
             logging.info("Handling new-style login page")
             form = challenge_page.find('form', {'id': 'challenge'})
-            passwd_challenge_url = 'https://accounts.google.com' + form.get('action')
+            passwd_challenge_url = 'https://accounts.google.com' + form.get(
+                'action')
 
         for tag in form.find_all('input'):
             if tag.get('name') is None:
@@ -279,7 +288,8 @@ class Google:
         if "signin/rejected" in sess.url:
             raise ExpectedGoogleException(u'''Default value of parameter `bgresponse` has not accepted.
                 Please visit login URL {}, open the web inspector and execute document.bg.invoke() in the console.
-                Then, set --bg-response to the function output.'''.format(self.login_url))
+                Then, set --bg-response to the function output.'''.format(
+                self.login_url))
 
         self.check_extra_step(response_page)
 
@@ -339,18 +349,21 @@ class Google:
 
     @staticmethod
     def check_extra_step(response):
-        extra_step = response.find(text='This extra step shows that it’s really you trying to sign in')
+        extra_step = response.find(
+            text='This extra step shows that it’s really you trying to sign in')
         if extra_step:
             if response.find(id='contactAdminMessage'):
                 raise ValueError(response.find(id='contactAdminMessage').text)
 
     def parse_saml(self):
         if self.session_state is None:
-            raise RuntimeError('You must use do_login() before calling parse_saml()')
+            raise RuntimeError(
+                'You must use do_login() before calling parse_saml()')
 
         parsed = BeautifulSoup(self.session_state.text, 'html.parser')
         try:
-            saml_element = parsed.find('input', {'name': 'SAMLResponse'}).get('value')
+            saml_element = parsed.find('input', {'name': 'SAMLResponse'}).get(
+                'value')
         except:
 
             if self.save_failure:
@@ -359,7 +372,8 @@ class Google:
                 with open("saml.html", 'wb') as out:
                     out.write(self.session_state.text.encode('utf-8'))
 
-            raise ExpectedGoogleException('Something went wrong - Could not find SAML response, check your credentials or use --save-failure-html to debug.')
+            raise ExpectedGoogleException(
+                'Something went wrong - Could not find SAML response, check your credentials or use --save-failure-html to debug.')
 
         return base64.b64decode(saml_element)
 
@@ -385,10 +399,13 @@ class Google:
         payload['Passwd'] = self.config.password
 
         # Get all captcha challenge tokens and urls
-        captcha_container = response_page.find('div', {'id': 'identifier-captcha'})
-        captcha_logintoken = captcha_container.find('input', {'id': 'identifier-token'}).get('value')
+        captcha_container = response_page.find('div',
+                                               {'id': 'identifier-captcha'})
+        captcha_logintoken = captcha_container.find('input', {
+            'id': 'identifier-token'}).get('value')
         captcha_img = captcha_container.find('div', {'class': 'captcha-img'})
-        captcha_url = "https://accounts.google.com" + captcha_img.find('img').get('src')
+        captcha_url = "https://accounts.google.com" + captcha_img.find(
+            'img').get('src')
         captcha_logintoken_audio = ''
 
         open_image = True
@@ -396,10 +413,12 @@ class Google:
         # Check if there is a display utility installed as Image.open(f).show() do not raise any exception if not
         # if neither xv or display are available just display the URL for the user to visit.
         if os.name == 'posix' and sys.platform != 'darwin':
-            if find_executable('xv') is None and find_executable('display') is None:
+            if find_executable('xv') is None and find_executable(
+                    'display') is None:
                 open_image = False
 
-        print("Please visit the following URL to view your CAPTCHA: {}".format(captcha_url))
+        print("Please visit the following URL to view your CAPTCHA: {}".format(
+            captcha_url))
 
         if open_image:
             try:
@@ -452,19 +471,28 @@ class Google:
         facet_url = urllib_parse.urlparse(challenge_url)
         facet = facet_url.scheme + "://" + facet_url.netloc
 
-        keyHandleJSField = response_page.find('div', {'jsname': 'C0oDBd'}).get('data-challenge-ui')
+        keyHandleJSField = response_page.find('div', {'jsname': 'C0oDBd'}).get(
+            'data-challenge-ui')
         startJSONPosition = keyHandleJSField.find('{')
         endJSONPosition = keyHandleJSField.rfind('}')
-        keyHandleJsonPayload = json.loads(keyHandleJSField[startJSONPosition:endJSONPosition + 1])
+        keyHandleJsonPayload = json.loads(
+            keyHandleJSField[startJSONPosition:endJSONPosition + 1])
 
-        keyHandles = self.find_key_handles(keyHandleJsonPayload, base64.urlsafe_b64encode(base64.b64decode(challenges_txt)))
+        keyHandles = self.find_key_handles(keyHandleJsonPayload,
+                                           base64.urlsafe_b64encode(
+                                               base64.b64decode(
+                                                   challenges_txt)))
         appId = self.find_app_id(str(keyHandleJsonPayload))
 
         # txt sent for signing needs to be base64 url encode
         # we also have to remove any base64 padding because including including it will prevent google accepting the auth response
-        challenges_txt_encode_pad_removed = base64.urlsafe_b64encode(base64.b64decode(challenges_txt)).strip('='.encode())
+        challenges_txt_encode_pad_removed = base64.urlsafe_b64encode(
+            base64.b64decode(challenges_txt)).strip('='.encode())
 
-        u2f_challenges = [{'version': 'U2F_V2', 'challenge': challenges_txt_encode_pad_removed.decode(), 'appId': appId, 'keyHandle': keyHandle.decode()} for keyHandle in keyHandles]
+        u2f_challenges = [{'version': 'U2F_V2',
+                           'challenge': challenges_txt_encode_pad_removed.decode(),
+                           'appId': appId, 'keyHandle': keyHandle.decode()} for
+                          keyHandle in keyHandles]
 
         # Prompt the user up to attempts_remaining times to insert their U2F device.
         attempts_remaining = 5
@@ -492,43 +520,43 @@ class Google:
 
         payload = {
             'challengeId':
-            response_page.find('input', {
-                'name': 'challengeId'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'challengeId'
+                }).get('value'),
             'challengeType':
-            response_page.find('input', {
-                'name': 'challengeType'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'challengeType'
+                }).get('value'),
             'continue': response_page.find('input', {
                 'name': 'continue'
             }).get('value'),
             'scc':
-            response_page.find('input', {
-                'name': 'scc'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'scc'
+                }).get('value'),
             'sarp':
-            response_page.find('input', {
-                'name': 'sarp'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'sarp'
+                }).get('value'),
             'checkedDomains':
-            response_page.find('input', {
-                'name': 'checkedDomains'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'checkedDomains'
+                }).get('value'),
             'pstMsg': '1',
             'TL':
-            response_page.find('input', {
-                'name': 'TL'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'TL'
+                }).get('value'),
             'gxf':
-            response_page.find('input', {
-                'name': 'gxf'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'gxf'
+                }).get('value'),
             'id-challenge':
-            challenges_txt,
+                challenges_txt,
             'id-assertion':
-            auth_response,
+                auth_response,
             'TrustDevice':
-            'on',
+                'on',
         }
         return self.post(challenge_url, data=payload)
 
@@ -596,51 +624,51 @@ class Google:
 
         payload = {
             'challengeId':
-            response_page.find('input', {
-                'name': 'challengeId'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'challengeId'
+                }).get('value'),
             'challengeType':
-            response_page.find('input', {
-                'name': 'challengeType'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'challengeType'
+                }).get('value'),
             'continue':
-            response_page.find('input', {
-                'name': 'continue'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'continue'
+                }).get('value'),
             'scc':
-            response_page.find('input', {
-                'name': 'scc'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'scc'
+                }).get('value'),
             'sarp':
-            response_page.find('input', {
-                'name': 'sarp'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'sarp'
+                }).get('value'),
             'checkedDomains':
-            response_page.find('input', {
-                'name': 'checkedDomains'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'checkedDomains'
+                }).get('value'),
             'checkConnection':
-            'youtube:1295:1',
+                'youtube:1295:1',
             'pstMsg':
-            response_page.find('input', {
-                'name': 'pstMsg'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'pstMsg'
+                }).get('value'),
             'TL':
-            response_page.find('input', {
-                'name': 'TL'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'TL'
+                }).get('value'),
             'gxf':
-            response_page.find('input', {
-                'name': 'gxf'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'gxf'
+                }).get('value'),
             'token':
-            parsed_response['txToken'],
+                parsed_response['txToken'],
             'action':
-            response_page.find('input', {
-                'name': 'action'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'action'
+                }).get('value'),
             'TrustDevice':
-            'on',
+                'on',
         }
 
         return self.post(challenge_url, data=payload)
@@ -689,7 +717,8 @@ class Google:
     def handle_dp(self, sess):
         response_page = BeautifulSoup(sess.text, 'html.parser')
 
-        input("Check your phone - after you have confirmed response press ENTER to continue.") or None
+        input(
+            "Check your phone - after you have confirmed response press ENTER to continue.") or None
 
         form = response_page.find('form', {'id': 'challenge'})
         challenge_url = 'https://accounts.google.com' + form.get('action')
@@ -731,43 +760,43 @@ class Google:
 
         payload = {
             'challengeId':
-            response_page.find('input', {
-                'name': 'challengeId'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'challengeId'
+                }).get('value'),
             'challengeType':
-            response_page.find('input', {
-                'name': 'challengeType'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'challengeType'
+                }).get('value'),
             'continue':
-            self.cont,
+                self.cont,
             'scc':
-            response_page.find('input', {
-                'name': 'scc'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'scc'
+                }).get('value'),
             'sarp':
-            response_page.find('input', {
-                'name': 'sarp'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'sarp'
+                }).get('value'),
             'checkedDomains':
-            response_page.find('input', {
-                'name': 'checkedDomains'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'checkedDomains'
+                }).get('value'),
             'pstMsg':
-            response_page.find('input', {
-                'name': 'pstMsg'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'pstMsg'
+                }).get('value'),
             'TL':
-            response_page.find('input', {
-                'name': 'TL'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'TL'
+                }).get('value'),
             'gxf':
-            response_page.find('input', {
-                'name': 'gxf'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'gxf'
+                }).get('value'),
             'phoneNumber':
-            phone_number,
+                phone_number,
             'sendMethod':
-            send_method,
+                send_method,
         }
 
         # Submit phone number and desired method (SMS or voice call)
@@ -780,43 +809,43 @@ class Google:
 
         payload = {
             'challengeId':
-            response_page.find('input', {
-                'name': 'challengeId'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'challengeId'
+                }).get('value'),
             'challengeType':
-            response_page.find('input', {
-                'name': 'challengeType'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'challengeType'
+                }).get('value'),
             'continue':
-            response_page.find('input', {
-                'name': 'continue'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'continue'
+                }).get('value'),
             'scc':
-            response_page.find('input', {
-                'name': 'scc'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'scc'
+                }).get('value'),
             'sarp':
-            response_page.find('input', {
-                'name': 'sarp'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'sarp'
+                }).get('value'),
             'checkedDomains':
-            response_page.find('input', {
-                'name': 'checkedDomains'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'checkedDomains'
+                }).get('value'),
             'pstMsg':
-            response_page.find('input', {
-                'name': 'pstMsg'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'pstMsg'
+                }).get('value'),
             'TL':
-            response_page.find('input', {
-                'name': 'TL'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'TL'
+                }).get('value'),
             'gxf':
-            response_page.find('input', {
-                'name': 'gxf'
-            }).get('value'),
+                response_page.find('input', {
+                    'name': 'gxf'
+                }).get('value'),
             'pin':
-            token,
+                token,
         }
 
         # Submit SMS/VOICE token
@@ -830,15 +859,19 @@ class Google:
             action = i.attrs.get("action")
 
             if "challenge/totp/" in action:
-                challenges.append(['TOTP (Google Authenticator)', i.attrs.get("data-challengeentry")])
+                challenges.append(['TOTP (Google Authenticator)',
+                                   i.attrs.get("data-challengeentry")])
             elif "challenge/ipp/" in action:
                 challenges.append(['SMS', i.attrs.get("data-challengeentry")])
             elif "challenge/iap/" in action:
-                challenges.append(['SMS other phone', i.attrs.get("data-challengeentry")])
+                challenges.append(
+                    ['SMS other phone', i.attrs.get("data-challengeentry")])
             elif "challenge/sk/" in action:
-                challenges.append(['YubiKey', i.attrs.get("data-challengeentry")])
+                challenges.append(
+                    ['YubiKey', i.attrs.get("data-challengeentry")])
             elif "challenge/az/" in action:
-                challenges.append(['Google Prompt', i.attrs.get("data-challengeentry")])
+                challenges.append(
+                    ['Google Prompt', i.attrs.get("data-challengeentry")])
 
         print('Choose MFA method from available:')
         for i, mfa in enumerate(challenges, start=1):
@@ -846,7 +879,8 @@ class Google:
 
         selected_challenge = input("Enter MFA choice number (1): ") or None
 
-        if selected_challenge is not None and int(selected_challenge) <= len(challenges):
+        if selected_challenge is not None and int(selected_challenge) <= len(
+                challenges):
             selected_challenge = int(selected_challenge) - 1
         else:
             selected_challenge = 0

@@ -8,73 +8,57 @@ from logging import info
 from logging import debug
 from base64 import b64decode
 from logging import getLogger
-from argparse import Namespace
 from tzlocal import get_localzone
 from aws_google_auth import amazon
 from aws_google_auth import google
-from aws_google_auth.util import Util
+from aws_google_auth.configuration import Configuration
 
 
-def process_auth(args: Namespace, config):
+def process_auth(config: Configuration) -> None:
+    """
+        Process the authentication
+
+        :param config: Configuration
+        :return: None
+    """
     # Set up logging
     getLogger().setLevel(getattr(logging, args.log_level.upper(), None))
 
-    if config.region is None:
-        config.region = Util.get_input("AWS Region: ")
-        debug(f"{__name__}: region is: {config.region}")
+    debug(f"{__name__}: region is: {config.region}")
 
-    # If there is a valid cache and the user opted to use it, use that instead
-    # of prompting the user for input (it will also ignore any set variables
-    # such as username or sp_id and idp_id, as those are built into the SAML
-    # response). The user does not need to be prompted for a password if the
-    # SAML cache is used.
-    if args.saml_assertion:
-        saml_xml = b64decode(args.saml_assertion)
-
-    elif args.saml_cache and config.saml_cache:
+    """
+        If there is a valid cache and the user opted to use it, use that 
+        instead of prompting the user for input (it will also ignore any set 
+        variables such as username or sp_id and idp_id, as those are built 
+        into the SAML response). The user does not need to be prompted for a 
+        password if the SAML cache is used.
+    """
+    if config.saml_assertion:
+        # Use the provided saml assertion
+        saml_xml = b64decode(config.saml_assertion)
+    elif config.saml_cache and config.saml_cache:
+        # Use the cached saml assertion
         saml_xml = config.saml_cache
         info(f"{__name__}: SAML cache found")
-
     else:
-
-        # No cache, continue without.
+        # Go through the SAML authentication process.
         info(f"{__name__}: SAML cache not found")
 
-        if config.username is None:
-            config.username = Util.get_input("Google username: ")
-            debug(f"{__name__}: username is: {config.username}")
-
-        if config.idp_id is None:
-            config.idp_id = Util.get_input("Google IDP ID: ")
-            debug(f"{__name__}: idp is: {config.idp_id}")
-
-        if config.sp_id is None:
-            config.sp_id = Util.get_input("Google SP ID: ")
-            debug(f"{__name__}: sp is: {config.sp_id}")
-
-        # There is no way (intentional) to pass in the password via the command
-        # line nor environment variables. This prevents password leakage.
+        # ToDo: move this to config class
         keyring_password = None
         if config.keyring:
             keyring_password = keyring.get_password("aws-google-auth",
                                                     config.username)
-
             if keyring_password:
                 config.password = keyring_password
-
             else:
                 config.password = Util.get_password("Google Password: ")
-
         else:
             config.password = Util.get_password("Google Password: ")
 
-        # Validate Options
-        config.raise_if_invalid()
-
         google_client = google.Google(config,
-                                      save_failure=args.save_failure_html,
-                                      save_flow=args.save_saml_flow)
-
+                                      save_failure=config.save_failure_html,
+                                      save_flow=config.save_saml_flow)
         google_client.do_login()
 
         saml_xml = google_client.parse_saml()

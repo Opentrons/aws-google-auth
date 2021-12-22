@@ -50,7 +50,7 @@ class Base(Utilities):
         self.save_failure_html = False
         self.save_saml_flow = False
         self.keyring = False
-        self.u2f_disabled = False
+        self.u2f_disabled = True  # Disabled for now
         self.quiet = False
         self.password = None
 

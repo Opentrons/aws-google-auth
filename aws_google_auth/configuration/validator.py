@@ -2,10 +2,16 @@
 
 __strict__ = True
 
-from .cli_args import CommandLineArgs
+from re import compile
+from typing import Callable
+from .user_input import UserInput
+from .exceptions import TypeCheckException
+from .exceptions import StringValidationError
+from .exceptions import IntegerMinBoundCheckError
+from .exceptions import IntegerMaxBoundCheckError
 
 
-class Validator(CommandLineArgs):
+class Validator(UserInput):
     """
         Validate configuration and provide users guidance when
         things are wrong.
@@ -19,81 +25,179 @@ class Validator(CommandLineArgs):
                   information if possible or throw an exception.
         """
         super().__init__()
-        try:
-            self.expect_int("_max_duration", min=0, max=65535)
-            self.expect_int("_min_duration", min=0, max=self._max_duration - 1)
-            self.expect_int("duration", min=self._min_duration,
-                            max=self._max_duration)
 
-            boolean_attrs = [
-                "ask_role", "keyring", "auto_duration",
-                "u2f_disabled", "quiet"]
-            for v in boolean_attrs:
-                self.expect_bool(v)
+        self.expect_int("_max_duration",
+                        min=0, max=1048576, input_method=self.get_int)
 
-            string_attrs = [
-                "profile", "region", "idp_id", "sp_id",
-                "username", "password", "account"]
-            for v in string_attrs:
-                self.expect_str(v)
+        self.expect_int("_min_duration",
+                        min=0,
+                        max=self._max_duration - 1,
+                        input_method=self.get_int)
 
-            self.expect_str("role_arn", none_allowed=True)
+        self.expect_int("duration",
+                        min=self._min_duration,
+                        max=self._max_duration,
+                        input_method=self.get_int)
 
-            arn_prefix = ["arn:aws:iam::", "arn:aws-us-gov:iam::"]
-            assert (arn_prefix[0] in self.role_arn) or \
-                   (arn_prefix[1] in self.role_arn), "Expected role_arn to " \
-                                                     "contain one of " \
-                                                     f"{arn_prefix}" \
-                                                     f"Got '{self.role_arn}'."
-        except AssertionError as e:
-            print("---Invalid input error---\n\n"
-                  "After loading the configuration file, environment "
-                  "variables, and parsing any command-line arguments, an "
-                  "invalid parameter was discovered.\n\n"
-                  f"Error: {e}\n\n")
+        self.expect_bool("ask_role",
+                         input_method=self.get_yes_no)
+
+        self.expect_bool("keyring",
+                         input_method=self.get_yes_no)
+
+        self.expect_bool("auto_duration",
+                         input_method=self.get_yes_no)
+
+        self.expect_bool("u2f_disabled",
+                         input_method=self.get_yes_no)
+
+        self.expect_bool("quiet",
+                         input_method=self.get_yes_no)
+
+        regex_profile = "^[a-zA-Z][a-zA-Z0-9_\\-]*[a-zA-Z0-9]*$"
+        regex_regions = "^(us-east-1|us-east-2|us-west-2)$"
+        regex_base64 = "^.+$"
+        regex_username = "^[a-zA-Z][a-zA-Z0-9_\\-\\.]*[a-zA-Z0-9]*$"
+        regex_password = "^.{12,255}$"
+        regex_account = "^[0-9]+$"
+        regex_role_arn = "^.+$"
+        self.expect_str(
+            n="profile",
+            allow_empty=False,
+            allow_none=False,
+            input_method=self.get_str,
+            validation=regex_profile)
+        self.expect_str(
+            n="region",
+            allow_empty=False,
+            allow_none=False,
+            input_method=self.get_str,
+            validation=regex_regions)
+        self.expect_str(
+            n="idp_id",
+            allow_empty=False,
+            allow_none=False,
+            input_method=self.get_str,
+            validation=regex_base64)
+        self.expect_str(
+            n="sp_id",
+            allow_empty=False,
+            allow_none=False,
+            input_method=self.get_str,
+            validation=regex_base64)
+        self.expect_str(
+            n="username",
+            allow_empty=False,
+            allow_none=False,
+            input_method=self.get_str,
+            validation=regex_username)
+        self.expect_str(
+            n="password",
+            allow_empty=False,
+            allow_none=False,
+            input_method=self.get_password,
+            validation=regex_password)
+        self.expect_str(
+            n="account",
+            allow_empty=False,
+            allow_none=False,
+            input_method=self.get_str,
+            validation=regex_account)
+        self.expect_str(
+            n="role_arn",
+            allow_empty=True,
+            allow_none=False,
+            input_method=self.select_role,
+            validation=regex_role_arn)
+
+        arn_prefix = ["arn:aws:iam::", "arn:aws-us-gov:iam::"]
+        assert (arn_prefix[0] in self.role_arn) or \
+               (arn_prefix[1] in self.role_arn), "Expected role_arn to " \
+                                                 "contain one of " \
+                                                 "{arn_prefix} Got " \
+                                                 "'{self.role_arn}'."
 
     def expect_attr(self, n: str) -> any:
         """
             Perform a check to ensure we have an expected attribute.
+
             param n: str
             return: any
         """
         assert hasattr(self, n), f"expected attribute {n} not found."
         return getattr(self, n)
 
-    def expect_bool(self, n: str) -> None:
+    def expect_bool(self, n: str, input_method: Callable) -> None:
         """
-            Perform a type check on boolean attributes of self.
-            param n: string (object name)
-        """
-        o = self.expect_attr(n)
-        assert o.__class__ is bool, f"Expected {n} to be boolean. " \
-                                    f"Got {o.__class__}"
-
-    def expect_int(self, n: str, min: int = None, max: int = None) -> None:
-        """
-             Perform a type check on int attributes of self.
+            Perform a type check on boolean attributes.
+                - expect a boolean
+                - if None, get user input
+                - else throw exception
             :param n: string (object name)
-            :param min: minimum value or none (disables value check)
-            :param max: maximum value or none (disables value check)
-         """
+            :param input_method: Callable (user input method)
+        """
         o = self.expect_attr(n)
-        assert o.__class__ is int, f"Expected {n} to be int. " \
-                                   f"Got {o.__class__}"
-        if min is not None:
-            assert min <= o, f"Bound check fail. {n} less than {min}"
-        if max is not None:
-            assert max >= o, f"Bound check fail. {n} greater than {max}"
+        if o.__class__ is bool:
+            return
+        elif o is None:
+            setattr(self, n, input_method(n))
+        else:
+            raise TypeCheckException("boolean", n, o.__class__)
 
-    def expect_str(self, n: str, none_allowed: bool) -> None:
+    def expect_int(self, n: str,
+                   min: int = None,
+                   max: int = None,
+                   input_method: Callable = None) -> None:
         """
              Perform a type check on int attributes of self.
-             :param n: string (object name)
-             :param none_allowed: bool (allows None value)
+                 - Expect integer
+                 - Expect non-None type
+            :param n: string (object name)
+            :param min: int: minimum value or none (disables value check)
+            :param max: int: maximum value or none (disables value check)
+            :param input_method: Callable (user input method)
          """
         o = self.expect_attr(n)
-
-        if none_allowed and o is None:
+        if o.__class__ is int:
+            if (min is not None) and (min > o):
+                raise IntegerMinBoundCheckError(n, o, min)
+            if (max is not None) and (max < o):
+                raise IntegerMaxBoundCheckError(n, o, max)
             return
-        assert o.__class__ is str, f"Expected {n} to be int. " \
-                                   f"Got {o.__class__}"
+        elif o is None and input_method is not None:
+            setattr(self, n, input_method(n, min, max))
+        else:
+            raise TypeCheckException("int", n, o.__class__)
+
+    def expect_str(self, n: str,
+                   allow_empty: bool,
+                   allow_none: bool,
+                   input_method: Callable,
+                   validation: str) -> None:
+        """
+             Perform a type check on int attributes of self.
+
+             - expect string type if none_allowed is False
+             - expect string or None if none_allowed is True
+
+             :param n: string (object name)
+             :param allow_empty: bool (allow an empty string)
+             :param allow_none: bool (allow None value)
+             :param input_method: Callable (user prompt method).
+             :param validation: str (regex for evaluating string value)
+         """
+        o = self.expect_attr(n)
+        if allow_empty and (o == ""):
+            return
+        elif allow_none and (o is None):
+            return
+        elif (o == "") or (o is None):
+            o = input_method(n, allow_empty)
+
+        if o.__class__ is str:
+            pattern = compile(validation)
+            if pattern.match(o) is None:
+                raise StringValidationError(n, validation)
+            setattr(self, n, o)
+        else:
+            raise TypeCheckException("string", n, o.__class__)

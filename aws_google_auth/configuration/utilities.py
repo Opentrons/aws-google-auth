@@ -9,11 +9,8 @@ from os import fdopen
 from os import O_CREAT
 from os import O_APPEND
 from os.path import exists
-from getpass import getpass
 from os.path import dirname
-from tabulate import tabulate
 from os.path import expanduser
-from collections import OrderedDict
 from botocore.session import Session
 
 
@@ -95,62 +92,3 @@ class Utilities(object):
             if value is not None:
                 return value
         return None
-
-    def select_aws_role(self, roles, aliases=None, account=None):
-        if account:
-            filtered_roles = {role: principal for role, principal in
-                              roles.items() if (account in role)}
-        else:
-            filtered_roles = roles
-
-        if aliases:
-            enriched_roles = {}
-            for role, principal in filtered_roles.items():
-                enriched_roles[role] = [
-                    aliases[role.split(':')[4]],
-                    role.split('role/')[1],
-                    principal
-                ]
-            enriched_roles = OrderedDict(sorted(enriched_roles.items(),
-                                                key=lambda t: (
-                                                    t[1][0], t[1][1])))
-
-            ordered_roles = OrderedDict()
-            for role, role_property in enriched_roles.items():
-                ordered_roles[role] = role_property[2]
-
-            enriched_roles_tab = []
-            for i, (role, role_property) in enumerate(enriched_roles.items()):
-                enriched_roles_tab.append(
-                    [i + 1, role_property[0], role_property[1]])
-
-            while True:
-                print(tabulate(enriched_roles_tab,
-                               headers=['No', 'AWS account', 'Role'], ))
-                prompt = "Type the number (1 - {:d}) of the role to assume: ".format(
-                    len(enriched_roles))
-                choice = self.get_user_input(prompt)
-
-                try:
-                    return list(ordered_roles.items())[int(choice) - 1]
-                except (IndexError, ValueError):
-                    print("Invalid choice, try again.")
-        else:
-            while True:
-                for i, role in enumerate(filtered_roles):
-                    print("[{:>3d}] {}".format(i + 1, role))
-
-                prompt = "Type the number (1 - {len(filtered_roles)}) " \
-                         "of the role to assume: "
-                choice = self.get_user_input(prompt)
-                try:
-                    return list(filtered_roles.items())[int(choice) - 1]
-                except (IndexError, ValueError):
-                    print("Invalid choice, try again.")
-
-    @staticmethod
-    def get_user_input(prompt, sensitive: bool = False):
-        if sensitive:
-            return getpass(prompt)
-        else:
-            return input(f"{prompt}: ")

@@ -3,6 +3,8 @@
 __strict__ = True
 
 from getpass import getpass
+from typing import Optional
+
 from .cli_args import CommandLineArgs
 
 
@@ -93,9 +95,68 @@ class UserInput(CommandLineArgs):
         """
         return getpass(f"{prompt}: ")
 
-    def select_role(self) -> str:
+    @staticmethod
+    def select_role(roles: dict,
+                    aliases: list = None,
+                    account: Optional[str] = None) -> str:
         """
             Select role ARN from a list of known ARNs.
+
+            :param roles: dict (dictionary of iam roles)
+            :param aliases: list
+            :param account: str
+            :return:
             :return: str
         """
-        raise Exception("Not implemented yet")
+        if account:
+            filtered_roles = {role: principal for role, principal in
+                              roles.items() if (account in role)}
+        else:
+            filtered_roles = roles
+
+        if aliases:
+            enriched_roles = {}
+            for role, principal in filtered_roles.items():
+                enriched_roles[role] = [
+                    aliases[role.split(':')[4]],
+                    role.split('role/')[1],
+                    principal
+                ]
+            enriched_roles = OrderedDict(sorted(enriched_roles.items(),
+                                                key=lambda t: (
+                                                    t[1][0], t[1][1])))
+
+            ordered_roles = OrderedDict()
+            for role, role_property in enriched_roles.items():
+                ordered_roles[role] = role_property[2]
+
+            enriched_roles_tab = []
+            for i, (role, role_property) in enumerate(
+                    enriched_roles.items()):
+                enriched_roles_tab.append(
+                    [i + 1, role_property[0], role_property[1]])
+
+            while True:
+                print(tabulate(enriched_roles_tab,
+                               headers=['No', 'AWS account', 'Role'], ))
+                prompt = 'Type the number (1 - {:d}) of the role to assume: '.format(
+                    len(enriched_roles))
+                choice = Util.get_input(prompt)
+
+                try:
+                    return list(ordered_roles.items())[int(choice) - 1]
+                except (IndexError, ValueError):
+                    print("Invalid choice, try again.")
+        else:
+            while True:
+                for i, role in enumerate(filtered_roles):
+                    print("[{:>3d}] {}".format(i + 1, role))
+
+                prompt = 'Type the number (1 - {:d}) of the role to assume: '.format(
+                    len(filtered_roles))
+                choice = Util.get_input(prompt)
+
+                try:
+                    return list(filtered_roles.items())[int(choice) - 1]
+                except (IndexError, ValueError):
+                    print("Invalid choice, try again.")

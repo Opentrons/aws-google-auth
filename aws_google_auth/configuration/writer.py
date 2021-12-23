@@ -60,8 +60,8 @@ class Writer(Base):
             # resolve_addresses does not persist
             # save_failure_html does not persist
             parser.set(profile, "google_config.keyring", f"{self.keyring}")
-            parser.set(profile, "google_config.u2f_disabled",
-                       f"{self.u2f_disabled}")
+            # parser.set(profile, "google_config.u2f_disabled",
+            #            f"{self.u2f_disabled}")
             # quiet does not persist
             # password does not persist
             with open(self.config_file, 'w+') as f:

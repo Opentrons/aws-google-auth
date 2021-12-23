@@ -21,7 +21,7 @@ class TestPythonFailOnVersion(unittest.TestCase):
         self.assertFalse(parser.print_creds)
         self.assertFalse(parser.keyring)
         self.assertFalse(parser.resolve_aliases)
-        self.assertFalse(parser.disable_u2f, None)
+        # self.assertFalse(parser.disable_u2f, None)
 
         self.assertEqual(parser.duration, None)
         self.assertEqual(parser.auto_duration, False)

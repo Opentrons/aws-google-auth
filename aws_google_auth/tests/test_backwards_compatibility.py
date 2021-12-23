@@ -27,7 +27,7 @@ class TestConfigurationPersistence(unittest.TestCase):
         self.c.idp_id = "sample_idp_id"
         self.c.role_arn = "arn:aws:iam::sample_arn"
         self.c.sp_id = "sample_sp_id"
-        self.c.u2f_disabled = False
+        # self.c.u2f_disabled = False
         self.c.username = "sample_username"
         self.c.account = "123456789012"
         self.c.raise_if_invalid()
@@ -51,5 +51,5 @@ class TestConfigurationPersistence(unittest.TestCase):
         self.assertEqual(self.config_parser[profile_string].get('google_config.google_username'), self.c.username)
         self.assertEqual(self.config_parser[profile_string].get('region'), self.c.region)
         self.assertEqual(self.config_parser[profile_string].getboolean('google_config.ask_role'), self.c.ask_role)
-        self.assertEqual(self.config_parser[profile_string].getboolean('google_config.u2f_disabled'), self.c.u2f_disabled)
+        # self.assertEqual(self.config_parser[profile_string].getboolean('google_config.u2f_disabled'), self.c.u2f_disabled)
         self.assertEqual(self.config_parser[profile_string].getint('google_config.duration'), self.c.duration)

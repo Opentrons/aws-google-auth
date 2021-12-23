@@ -376,48 +376,48 @@ class TestConfigurationMethods(unittest.TestCase):
         self.assertEqual(c.role_arn, "arn:aws:iam::some_other_arn_2")
         c.raise_if_invalid()
 
-    def test_u2f_disabled_invalid_values(self):
-        # u2f_disabled must be a boolean
-        c = configuration.Configuration()
-        c.region = "sample_region"
-        c.idp_id = "sample_idp_id"
-        c.sp_id = "sample_sp_id"
-        c.username = "sample_username"
-        c.password = "hunter2"
-        c.u2f_disabled = 1234
-        with self.assertRaises(AssertionError) as e:
-            c.raise_if_invalid()
-        self.assertIn("Expected u2f_disabled to be a boolean.", str(e.exception))
+    # def test_u2f_disabled_invalid_values(self):
+    #     # u2f_disabled must be a boolean
+    #     c = configuration.Configuration()
+    #     c.region = "sample_region"
+    #     c.idp_id = "sample_idp_id"
+    #     c.sp_id = "sample_sp_id"
+    #     c.username = "sample_username"
+    #     c.password = "hunter2"
+    #     c.u2f_disabled = 1234
+    #     with self.assertRaises(AssertionError) as e:
+    #         c.raise_if_invalid()
+    #     self.assertIn("Expected u2f_disabled to be a boolean.", str(e.exception))
 
-    def test_u2f_disabled_valid_values(self):
-        c = configuration.Configuration()
-        c.region = "sample_region"
-        c.password = "hunter2"
-        c.idp_id = "sample_idp_id"
-        c.sp_id = "sample_sp_id"
-        c.username = "sample_username"
-        c.u2f_disabled = True
-        self.assertTrue(c.u2f_disabled)
-        c.raise_if_invalid()
-        c = configuration.Configuration()
-        c.region = "sample_region"
-        c.password = "hunter2"
-        c.idp_id = "sample_idp_id"
-        c.sp_id = "sample_sp_id"
-        c.username = "sample_username"
-        c.u2f_disabled = False
-        self.assertFalse(c.u2f_disabled)
-        c.raise_if_invalid()
-
-    def test_u2f_disabled_is_optional(self):
-        c = configuration.Configuration()
-        c.region = "sample_region"
-        c.password = "hunter2"
-        c.idp_id = "sample_idp_id"
-        c.sp_id = "sample_sp_id"
-        c.username = "sample_username"
-        self.assertFalse(c.u2f_disabled)
-        c.raise_if_invalid()
+    # def test_u2f_disabled_valid_values(self):
+    #     c = configuration.Configuration()
+    #     c.region = "sample_region"
+    #     c.password = "hunter2"
+    #     c.idp_id = "sample_idp_id"
+    #     c.sp_id = "sample_sp_id"
+    #     c.username = "sample_username"
+    #     c.u2f_disabled = True
+    #     self.assertTrue(c.u2f_disabled)
+    #     c.raise_if_invalid()
+    #     c = configuration.Configuration()
+    #     c.region = "sample_region"
+    #     c.password = "hunter2"
+    #     c.idp_id = "sample_idp_id"
+    #     c.sp_id = "sample_sp_id"
+    #     c.username = "sample_username"
+    #     c.u2f_disabled = False
+    #     self.assertFalse(c.u2f_disabled)
+    #     c.raise_if_invalid()
+    #
+    # def test_u2f_disabled_is_optional(self):
+    #     c = configuration.Configuration()
+    #     c.region = "sample_region"
+    #     c.password = "hunter2"
+    #     c.idp_id = "sample_idp_id"
+    #     c.sp_id = "sample_sp_id"
+    #     c.username = "sample_username"
+    #     self.assertFalse(c.u2f_disabled)
+    #     c.raise_if_invalid()
 
     def test_unicode_password(self):
         c = configuration.Configuration()

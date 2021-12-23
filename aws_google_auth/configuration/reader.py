@@ -65,7 +65,7 @@ class Reader(Writer):
 
             self.u2f_disabled = self.coalesce(
                 config_parser[profile_string].getboolean(
-                    "google_config.u2f_disabled", None), self.u2f_disabled)
+                    "google_config.u2f_disabled", True), self.u2f_disabled)
 
             self.username = self.coalesce(config_parser[profile_string].get(
                 "google_config.google_username", None), self.username)

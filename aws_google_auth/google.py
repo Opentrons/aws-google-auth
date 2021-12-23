@@ -489,29 +489,29 @@ class Google:
         challenges_txt_encode_pad_removed = base64.urlsafe_b64encode(
             base64.b64decode(challenges_txt)).strip('='.encode())
 
-        u2f_challenges = [{'version': 'U2F_V2',
-                           'challenge': challenges_txt_encode_pad_removed.decode(),
-                           'appId': appId, 'keyHandle': keyHandle.decode()} for
-                          keyHandle in keyHandles]
+        # u2f_challenges = [{'version': 'U2F_V2',
+        #                    'challenge': challenges_txt_encode_pad_removed.decode(),
+        #                    'appId': appId, 'keyHandle': keyHandle.decode()} for
+        #                   keyHandle in keyHandles]
 
         # Prompt the user up to attempts_remaining times to insert their U2F device.
-        attempts_remaining = 5
-        auth_response = None
-        while True:
-            try:
-                auth_response_dict = u2f.u2f_auth(u2f_challenges, facet)
-                auth_response = json.dumps(auth_response_dict)
-                break
-            except RuntimeWarning:
-                logging.error("No U2F device found. %d attempts remaining",
-                              attempts_remaining)
-                if attempts_remaining <= 0:
-                    break
-                else:
-                    input(
-                        "Insert your U2F device and press enter to try again..."
-                    )
-                    attempts_remaining -= 1
+        # attempts_remaining = 5
+        # auth_response = None
+        # while True:
+        #     try:
+        #         auth_response_dict = u2f.u2f_auth(u2f_challenges, facet)
+        #         auth_response = json.dumps(auth_response_dict)
+        #         break
+        #     except RuntimeWarning:
+        #         logging.error("No U2F device found. %d attempts remaining",
+        #                       attempts_remaining)
+        #         if attempts_remaining <= 0:
+        #             break
+        #         else:
+        #             input(
+        #                 "Insert your U2F device and press enter to try again..."
+        #             )
+        #             attempts_remaining -= 1
 
         # If we exceed the number of attempts, raise an error and let the program exit.
         if auth_response is None:

@@ -92,3 +92,10 @@ class UserInput(CommandLineArgs):
             :return: str
         """
         return getpass(f"{prompt}: ")
+
+    def select_role(self) -> str:
+        """
+            Select role ARN from a list of known ARNs.
+            :return: str
+        """
+        raise Exception("Not implemented yet")

@@ -46,7 +46,7 @@ class TestInit(unittest.TestCase):
 
         self.assertEqual([call(Namespace(ask_role=False,
                                          keyring=False,
-                                         disable_u2f=False,
+                                         disable_u2f=True,
                                          duration=None,
                                          auto_duration=False,
                                          idp_id=None,
@@ -70,7 +70,7 @@ class TestInit(unittest.TestCase):
 
         self.assertEqual([call(Namespace(ask_role=False,
                                          keyring=False,
-                                         disable_u2f=False,
+                                         disable_u2f=True,
                                          duration=None,
                                          auto_duration=False,
                                          idp_id=None,

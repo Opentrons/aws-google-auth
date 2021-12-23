@@ -159,11 +159,11 @@ class CommandLineArgs(Reader):
             action="store_true",
             help="Use keyring for storing the password.")
 
-        parser.add_argument(
-            "-D", "--u2f_disabled",
-            dest="u2f_disabled",
-            action="store_true",
-            help="Disable U2F functionality.")
+        # parser.add_argument(
+        #     "-D", "--u2f_disabled",
+        #     dest="u2f_disabled",
+        #     action="store_true",
+        #     help="Disable U2F functionality.")
 
         parser.add_argument(
             "-q", "--quiet",

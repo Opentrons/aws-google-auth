@@ -10,6 +10,48 @@ from .exceptions import StringValidationError
 from .exceptions import IntegerMinBoundCheckError
 from .exceptions import IntegerMaxBoundCheckError
 
+# AWS Profile
+regex_profile = "^[a-zA-Z][a-zA-Z0-9_\\-]*[a-zA-Z0-9]*$"
+
+# AWS Region
+regex_regions = "^us-(east|west)-[12]$"
+
+# Base64 string
+regex_base64 = "^(?:[A-Za-z0-9+/]{4})*" \
+               "(?:[A-Za-z0-9+/]{2}==" \
+               "|[A-Za-z0-9+/]{3}=)?$"
+
+# AWS/Google username (not email address)
+regex_username = "^[a-zA-Z]+[_\\-]{0,1}[a-zA-Z0-9]+\\." \
+                 "[a-zA-Z]+[-]{0,1}[a-zA-Z0-9]+$"
+
+# Password (complexity enforcement)
+regex_password = "".join([
+    "^(?:",
+    "(?=.*[a-z])",  # ......Lower-case letter ahead,
+    "(?:",  # ..............and
+    "(?=.*[A-Z])",  # ......Upper-case letter, and
+    "(?=.*[\\d\\W])",  # ...Number (\d) or symbol (\W),
+    ")|",  # ...............or
+    "(?=.*\\W)",  # ........symbol, and
+    "(?=.*[A-Z])",  # ......an upper-case letter, and
+    "(?=.*\\d)",  # ........a number ahead.
+    ").{12,}$"])  # ........password is at least 12 characters.
+
+# https://docs.aws.amazon.com/organizations/latest/APIReference/
+# API_Account.html
+regex_account = "^[0-9]{12}$"
+
+# see https://docs.aws.amazon.com/IAM/latest/UserGuide/
+# reference_identifiers.html
+regex_role_arn = "".join([
+    "^arn:",
+    "aws(-us-gov){0,1}:",
+    "iam:(us-(east|west)-[12]){0,1}:",
+    "([0-9]{12}){0,1}:",
+    "role(\\/.*){0,1}$"
+])
+
 
 class Validator(UserInput):
     """
@@ -26,45 +68,6 @@ class Validator(UserInput):
                   information if possible or throw an exception.
         """
         super().__init__()
-
-        # ToDo: verify these regexes work.
-        regex_profile = "^[a-zA-Z][a-zA-Z0-9_\\-]*[a-zA-Z0-9]*$"
-
-        regex_regions = "^us-(east|west)-[12]$"
-
-        regex_base64 = "^(?:[A-Za-z0-9+/]{4})*" \
-                       "(?:[A-Za-z0-9+/]{2}==" \
-                       "|[A-Za-z0-9+/]{3}=)?$"
-
-        regex_username = "^[a-zA-Z]+[_\\-]{0,1}[a-zA-Z0-9]+\\." \
-                         "[a-zA-Z]+[-]{0,1}[a-zA-Z0-9]+$"
-
-        regex_password = "".join([
-            "^(?:",
-            "(?=.*[a-z])",  # Lower-case letter ahead,
-            "(?:",  # and
-            "(?=.*[A-Z])",  # Upper-case letter, and
-            "(?=.*[\\d\\W])",  # Number (\d) or symbol (\W),
-            ")|",  # or
-            "(?=.*\\W)",  # symbol, and
-            "(?=.*[A-Z])",  # an upper-case letter, and
-            "(?=.*\\d)",  # a number ahead.
-            ")."
-            "{12,}$"])  # password is at least 12 characters.
-
-        # https://docs.aws.amazon.com/organizations/latest/APIReference/
-        # API_Account.html
-        regex_account = "^[0-9]{12}$"
-
-        # see https://docs.aws.amazon.com/IAM/latest/UserGuide/
-        # reference_identifiers.html
-        regex_role_arn = "".join([
-            "^arn:",
-            "aws(-us-gov){0,1}:",
-            "iam:(us-(east|west)-[12]){0,1}:",
-            "([0-9]{12}){0,1}:",
-            "role(\\/.*){0,1}$"
-        ])
 
         self.expect_int("_max_duration",
                         min=0, max=1048576, input_method=self.get_int)
@@ -100,42 +103,49 @@ class Validator(UserInput):
             allow_none=False,
             input_method=self.get_str,
             validation=regex_profile)
+
         self.expect_str(
             n="region",
             allow_empty=False,
             allow_none=False,
             input_method=self.get_str,
             validation=regex_regions)
+
         self.expect_str(
             n="idp_id",
             allow_empty=False,
             allow_none=False,
             input_method=self.get_str,
             validation=regex_base64)
+
         self.expect_str(
             n="sp_id",
             allow_empty=False,
             allow_none=False,
             input_method=self.get_str,
             validation=regex_base64)
+
         self.expect_str(
             n="username",
             allow_empty=False,
             allow_none=False,
             input_method=self.get_str,
             validation=regex_username)
+
         self.expect_str(
             n="password",
             allow_empty=False,
             allow_none=False,
             input_method=self.get_password,
             validation=regex_password)
+
         self.expect_str(
             n="account",
             allow_empty=False,
             allow_none=False,
             input_method=self.get_str,
             validation=regex_account)
+
         self.expect_str(
             n="role_arn",
             allow_empty=True,

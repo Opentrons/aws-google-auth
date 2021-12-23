@@ -18,7 +18,6 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 from requests import HTTPError
 from aws_google_auth import version
-from six.moves import urllib_parse, input
 from distutils.spawn import find_executable
 from exceptions import ExpectedGoogleException
 

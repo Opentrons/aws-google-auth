@@ -3,50 +3,76 @@
 __strict__ = True
 
 import base64
-import boto3
-import os
-import re
 
-from datetime import datetime
-from threading import Thread
-
-from botocore.exceptions import ClientError, ProfileNotFound
+from os import getenv
+from os import environ
 from lxml import etree
-
+from boto3 import client
+from threading import Thread
+from datetime import datetime
+from botocore.exceptions import ClientError
+from botocore.exceptions import ProfileNotFound
+from aws_google_auth.configuration import Configuration
 from aws_google_auth.google import ExpectedGoogleException
 
 
 class Amazon:
+    """
+        Amazon AWS client
+    """
 
-    def __init__(self, config, saml_xml):
+    def __init__(self, config: Configuration, saml_xml: bytes):
+        """
+            Class Constructor.
+
+            :param config: Configuration Object
+            :param saml_xml: bytes
+        """
         self.config = config
         self.saml_xml = saml_xml
         self.__token = None
 
     @property
-    def sts_client(self):
+    def sts_client(self) -> object:
+        """
+            Read-only sts client property
+
+            :return: object (boto3.BaseClient)
+        """
         try:
-            profile = os.environ.get('AWS_PROFILE')
-            if profile is not None:
-                del os.environ['AWS_PROFILE']
-            client = boto3.client('sts', region_name=self.config.region)
-            if profile is not None:
-                os.environ['AWS_PROFILE'] = profile
-            return client
+            if self.config.profile is not None:
+                del environ['AWS_PROFILE']
+
+            aws_client = client('sts', region_name=self.config.region)
+
+            # Ensure our profile is updated
+            environ['AWS_PROFILE'] = self.config.profile
+
+            return aws_client
+
         except ProfileNotFound as ex:
             raise ExpectedGoogleException("Error : {}.".format(ex))
 
     @property
-    def base64_encoded_saml(self):
+    def base64_encoded_saml(self) -> str:
+        """
+            Read-only property to return base64-encoded SAML string.
+            :return: str
+        """
         return base64.b64encode(self.saml_xml).decode("utf-8")
 
     @property
     def token(self):
+        """
+
+        :return:
+        """
         if self.__token is None:
-            self.__token = self.assume_role(self.config.role_arn,
-                                            self.config.provider,
-                                            self.base64_encoded_saml,
-                                            self.config.duration)
+            self.__token = self.assume_role(
+                role=self.config.role_arn,
+                principal=self.config.provider,
+                saml_assertion=self.base64_encoded_saml,
+                duration=self.config.duration)
         return self.__token
 
     @property
@@ -80,13 +106,30 @@ class Amazon:
     def roles(self):
         doc = etree.fromstring(self.saml_xml)
         roles = {}
-        for x in doc.xpath('//*[@Name = "https://aws.amazon.com/SAML/Attributes/Role"]//text()'):
+        path = '//*[@Name = "https://aws.amazon.com/SAML/Attributes/Role"]' \
+               '//text()'
+        for x in doc.xpath(path):
             if "arn:aws:iam:" in x or "arn:aws-us-gov:iam:" in x:
                 res = x.split(',')
                 roles[res[0]] = res[1]
         return roles
 
-    def assume_role(self, role, principal, saml_assertion, duration=None, auto_duration=True):
+    def assume_role(self,
+                    role,
+                    principal,
+                    saml_assertion,
+                    duration=None,
+                    auto_duration=True):
+        """
+            Perform STS Assume Role
+
+            :param role:
+            :param principal:
+            :param saml_assertion:
+            :param duration:
+            :param auto_duration:
+            :return:
+        """
         sts_call_vars = {
             'RoleArn': role,
             'PrincipalArn': principal,
@@ -100,7 +143,9 @@ class Amazon:
             try:
                 res = self.sts_client.assume_role_with_saml(**sts_call_vars)
             except ClientError as err:
-                if (err.response.get('Error', []).get('Code') == 'ValidationError' and err.response.get('Error', []).get('Message')):
+                if (err.response.get('Error', []).get(
+                        'Code') == 'ValidationError' and err.response.get(
+                    'Error', []).get('Message')):
                     m = re.search(
                         'Member must have value less than or equal to ([0-9]{3,5})',
                         err.response['Error']['Message']
@@ -130,18 +175,24 @@ class Amazon:
                                              SAMLAssertion=self.base64_encoded_saml)
 
             iam = session.client('iam',
-                                 aws_access_key_id=saml['Credentials']['AccessKeyId'],
-                                 aws_secret_access_key=saml['Credentials']['SecretAccessKey'],
-                                 aws_session_token=saml['Credentials']['SessionToken'])
+                                 aws_access_key_id=saml['Credentials'][
+                                     'AccessKeyId'],
+                                 aws_secret_access_key=saml['Credentials'][
+                                     'SecretAccessKey'],
+                                 aws_session_token=saml['Credentials'][
+                                     'SessionToken'])
             try:
                 response = iam.list_account_aliases()
                 account_alias = response['AccountAliases'][0]
                 aws_dict[role.split(':')[4]] = account_alias
             except:
                 sts = session.client('sts',
-                                     aws_access_key_id=saml['Credentials']['AccessKeyId'],
-                                     aws_secret_access_key=saml['Credentials']['SecretAccessKey'],
-                                     aws_session_token=saml['Credentials']['SessionToken'])
+                                     aws_access_key_id=saml['Credentials'][
+                                         'AccessKeyId'],
+                                     aws_secret_access_key=saml['Credentials'][
+                                         'SecretAccessKey'],
+                                     aws_session_token=saml['Credentials'][
+                                         'SessionToken'])
 
                 account_id = sts.get_caller_identity().get('Account')
                 aws_dict[role.split(':')[4]] = '{}'.format(account_id)
@@ -149,7 +200,8 @@ class Amazon:
         threads = []
         aws_id_alias = {}
         for number, (role, principal) in enumerate(roles.items()):
-            t = Thread(target=resolve_aws_alias, args=(role, principal, aws_id_alias))
+            t = Thread(target=resolve_aws_alias,
+                       args=(role, principal, aws_id_alias))
             t.start()
             threads.append(t)
 
@@ -165,13 +217,16 @@ class Amazon:
 
         try:
             doc = etree.fromstring(saml_xml)
-            conditions = list(doc.iter(tag='{urn:oasis:names:tc:SAML:2.0:assertion}Conditions'))
+            conditions = list(doc.iter(
+                tag='{urn:oasis:names:tc:SAML:2.0:assertion}Conditions'))
             not_before_str = conditions[0].get('NotBefore')
             not_on_or_after_str = conditions[0].get('NotOnOrAfter')
 
             now = datetime.utcnow()
-            not_before = datetime.strptime(not_before_str, "%Y-%m-%dT%H:%M:%S.%fZ")
-            not_on_or_after = datetime.strptime(not_on_or_after_str, "%Y-%m-%dT%H:%M:%S.%fZ")
+            not_before = datetime.strptime(not_before_str,
+                                           "%Y-%m-%dT%H:%M:%S.%fZ")
+            not_on_or_after = datetime.strptime(not_on_or_after_str,
+                                                "%Y-%m-%dT%H:%M:%S.%fZ")
 
             if not_before <= now < not_on_or_after:
                 return True

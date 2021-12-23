@@ -53,6 +53,7 @@ class Base(Utilities):
         self.u2f_disabled = True  # Disabled for now
         self.quiet = False
         self.password = None
+        self.provider = None # Defined programmatically
 
     @property
     def max_duration(self):

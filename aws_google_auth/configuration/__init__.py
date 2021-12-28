@@ -2,7 +2,7 @@
 
 __strict__ = True
 
-from validator import Validator
+from .validator import Validator
 
 
 class Configuration(Validator):

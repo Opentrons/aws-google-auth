@@ -18,6 +18,7 @@ class Utilities(object):
     """
         Base class providing utility methods.
     """
+
     def __init__(self):
         """
             class constructor

@@ -77,6 +77,6 @@ class Reader(Writer):
                 "account", None), self.account)
         try:
             with open(self.saml_cache_file, 'r') as f:
-                self.__saml_cache = f.read().encode("utf-8")
+                self.__saml_cache: bytes = f.read().encode("utf-8")
         except IOError:
             pass

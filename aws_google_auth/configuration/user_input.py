@@ -2,9 +2,8 @@
 
 __strict__ = True
 
+from collections import OrderedDict
 from getpass import getpass
-from typing import Optional
-
 from .cli_args import CommandLineArgs
 
 
@@ -33,8 +32,20 @@ class UserInput(CommandLineArgs):
             :param max: int|None
             :return: int
         """
-        bounds = f"open->" if min is None else bounds = f"{min}->"
-        bounds = f"{bounds}open" if max is None else f"{bounds}{max}"
+
+        def set_min(inp: int) -> str:
+            if min is None:
+                return "open"
+            else:
+                return f"{inp}"
+
+        def set_max(inp: int) -> str:
+            if max is None:
+                return "open"
+            else:
+                f"{max}"
+
+        bounds = f"{set_min(min)}->{set_max(max)}"
         if (min is not None) and (max is not None) and (min >= max):
             raise Exception(
                 f"programming error: "
@@ -93,28 +104,98 @@ class UserInput(CommandLineArgs):
             :param prompt: str
             :return: str
         """
-        return getpass(f"{prompt}: ")
+        while True:
+            ans = getpass(f"{prompt}: ")
+            if ans.strip() == "":
+                print("input cannot be empty.  Try again.")
+                continue
+            else:
+                return ans
 
     @staticmethod
-    def select_role(roles: dict,
-                    aliases: list = None,
-                    account: Optional[str] = None) -> str:
+    def filter_roles(roles: dict, acct: str) -> dict:
+        """
+            return a filtered dictionary of roles
+            :param roles: dict
+            :param acct: str
+            :return: dict
+        """
+        # r -> role
+        # p -> principal
+        return roles if acct in [None, ""] else {
+            r: p for r, p in roles.items() if (acct in r)
+        }
+
+    @staticmethod
+    def display_choices(options: dict, exit_option: bool = True) -> (int, int):
+        """
+            Display menu options.
+            :param options: dict
+            :param exit_option: bool
+            :return: (int, int)
+        """
+
+        def print_menu_line(o: int, msg: str):
+            print(f"[{o} -> {msg}")
+
+        def print_divider(o: int):
+            print("-" * o)
+
+        for n, message in enumerate(options):
+            print_menu_line(n, message)
+
+        print_divider(10)
+
+        if exit_option:
+            max = (len(options) + 1) if exit_option else len(options)
+            print_menu_line(max, "exit this tool")
+            print_divider(10)
+            return 0, max
+        else:
+            return 0, len(options)
+
+    def select_choice(self,
+                      opts: dict,
+                      exit_option: bool = True) -> int:
+        """
+            Get user input (choice)
+            :param opts: list[int] : list of options.
+            :param exit_option: bool (do we check for an exit request (q)?)
+            :return: str
+        """
+        while True:
+            min, max = self.display_choices(opts, exit_option=exit_option)
+            try:
+                inp = int(
+                    input("Select option {min}...{max} and press enter: "))
+                if exit_option and (inp == max):
+                    print("terminating (user requested)")
+                    exit(0)
+                assert inp in range(min, max)
+                return inp
+            except (ValueError, AssertionError):
+                print(f"Invalid option.  Must be {min} - {max}")
+
+    def select_role(self,
+                    roles: dict,
+                    aliases: list = [],
+                    account: str = "") -> str:
         """
             Select role ARN from a list of known ARNs.
-
             :param roles: dict (dictionary of iam roles)
             :param aliases: list
             :param account: str
-            :return:
             :return: str
         """
-        if account:
-            filtered_roles = {role: principal for role, principal in
-                              roles.items() if (account in role)}
-        else:
-            filtered_roles = roles
+        filtered_roles: dict = self.filter_roles(roles, account)
 
-        if aliases:
+        if aliases in [None, []]:
+            choice = self.select_choice(filtered_roles, exit_option=True)
+            try:
+                return list(filtered_roles.items())[choice - 1]
+            except IndexError:
+                raise Exception("select_role() programming error")
+        else:
             enriched_roles = {}
             for role, principal in filtered_roles.items():
                 enriched_roles[role] = [
@@ -122,9 +203,9 @@ class UserInput(CommandLineArgs):
                     role.split('role/')[1],
                     principal
                 ]
-            enriched_roles = OrderedDict(sorted(enriched_roles.items(),
-                                                key=lambda t: (
-                                                    t[1][0], t[1][1])))
+            enriched_roles = OrderedDict(
+                sorted(enriched_roles.items(),
+                       key=lambda t: (t[1][0], t[1][1])))
 
             ordered_roles = OrderedDict()
             for role, role_property in enriched_roles.items():
@@ -136,27 +217,9 @@ class UserInput(CommandLineArgs):
                 enriched_roles_tab.append(
                     [i + 1, role_property[0], role_property[1]])
 
-            while True:
-                print(tabulate(enriched_roles_tab,
-                               headers=['No', 'AWS account', 'Role'], ))
-                prompt = 'Type the number (1 - {:d}) of the role to assume: '.format(
-                    len(enriched_roles))
-                choice = Util.get_input(prompt)
-
-                try:
-                    return list(ordered_roles.items())[int(choice) - 1]
-                except (IndexError, ValueError):
-                    print("Invalid choice, try again.")
-        else:
-            while True:
-                for i, role in enumerate(filtered_roles):
-                    print("[{:>3d}] {}".format(i + 1, role))
-
-                prompt = 'Type the number (1 - {:d}) of the role to assume: '.format(
-                    len(filtered_roles))
-                choice = Util.get_input(prompt)
-
-                try:
-                    return list(filtered_roles.items())[int(choice) - 1]
-                except (IndexError, ValueError):
-                    print("Invalid choice, try again.")
+            # enriched_roles_tab headers=['No', 'AWS account', 'Role']
+            choice = self.select_choice(enriched_roles_tab, exit_option=True)
+            try:
+                return list(ordered_roles.items())[choice - 1]
+            except IndexError:
+                raise Exception("select_role() programming error (enriched)")

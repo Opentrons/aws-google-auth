@@ -4,10 +4,10 @@
 
 __strict__ = True
 
-import json
-import time
+# import json
+# import time
 
-import requests
+# import requests
 # from u2flib_host import u2f, exc, appid
 # from u2flib_host.constants import APDU_USE_NOT_SATISFIED
 
@@ -67,7 +67,8 @@ valid for the facet https://accounts.google.com)
 #                 remove = True
 #                 for challenge in challenges:
 #                     try:
-#                         return u2f.authenticate(device, json.dumps(challenge),
+#                         return u2f.authenticate(device,
+#                                                 json.dumps(challenge),
 #                                                 facet)
 #                     except exc.APDUError as e:
 #                         if e.code == APDU_USE_NOT_SATISFIED:

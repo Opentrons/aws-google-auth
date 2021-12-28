@@ -13,7 +13,13 @@ from aws_google_auth.configuration.base import DEFAULT_MAX_DURATION
 from aws_google_auth.configuration.base import DEFAULT_LOG_LEVEL
 
 
-class TestConfigurationMethods(unittest.TestCase):
+class TestConfigurationBaseClass(unittest.TestCase):
+    def test_strictness(self):
+        """
+            Test strictness.
+        """
+        self.assertTrue(__strict__, "expect __strict__ is True")
+
     def test_constant_aws_profile(self):
         """
             Make sure we didn't accidentally fudge the default aws profile
